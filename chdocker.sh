@@ -34,6 +34,23 @@ human_version(){
   printf "%s (v%s)" $(basename $1) $(basename $(dirname $1))
 }
 
+dind_and_exec(){
+  if version_gt $DOCKER_VERSION "1.6.2" ; then
+    docker daemon $DOCKER_DAEMON_ARGS &
+  else
+    docker -d $DOCKER_DAEMON_ARGS &
+  fi
+  (( timeout = 60 + SECONDS ))
+  until docker info >/dev/null 2>&1 ; do
+    if (( SECONDS >= timeout )); then
+      echo 'Timed out trying to connect to internal docker host.' >&2
+      exit 1
+    fi
+    sleep 1
+  done
+  exec "$@"
+}
+
 DOCKER_BIN="${CHDOCKER_DIR}/docker/${DOCKER_VERSION}/docker"
 DOCKER_DIND_BIN="${CHDOCKER_DIR}/docker/${DOCKER_VERSION}/dind"
 DOCKER_MACHINE_BIN="${CHDOCKER_DIR}/machine/${DOCKER_MACHINE_VERSION}/docker-machine"
@@ -80,29 +97,18 @@ if [[ ! -f $DOCKER_MACHINE_BIN ]] ; then
   chmod +x $DOCKER_MACHINE_BIN
 fi
 
-if [ "${1:-}" == "entrypoint" ] ; then
-  shift
-  if version_gt $DOCKER_VERSION "1.6.2" ; then
-    docker daemon $DOCKER_DAEMON_ARGS &
-  else
-    docker -d $DOCKER_DAEMON_ARGS &
-  fi
-  (( timeout = 60 + SECONDS ))
-  until docker info >/dev/null 2>&1 ; do
-    if (( SECONDS >= timeout )); then
-      echo 'Timed out trying to connect to internal docker host.' >&2
-      exit 1
-    fi
-    sleep 1
-  done
-  exec "$@"
+if [ "${1:-}" == "alias" ] ; then
+  printf "alias %s=%s\n" docker "$DOCKER_BIN"
+  printf "alias %s=%s\n" dind "$DOCKER_DIND_BIN"
+  printf "alias %s=%s\n" docker-compose "$DOCKER_COMPOSE_BIN"
+  printf "alias %s=%s" docker-machine "$DOCKER_MACHINE_BIN"
 elif [ "${1:-}" == "install" ] ; then
   symlink_bin "$DOCKER_BIN" /usr/local/bin/docker
   symlink_bin "$DOCKER_DIND_BIN" /usr/local/bin/dind
   symlink_bin "$DOCKER_COMPOSE_BIN" /usr/local/bin/docker-compose
   symlink_bin "$DOCKER_MACHINE_BIN" /usr/local/bin/docker-machine
 else
-  echo "usage: $0 (entrypoint|install)"
+  echo "usage: $0 (alias|install|exec)"
   echo
   echo "The following environment variables are used to set the versions used:"
   echo "DOCKER_VERSION, DOCKER_COMPOSE_VERSION, DOCKER_MACHINE_VERSION"
