@@ -3,7 +3,7 @@
 set -e
 set -u
 
-: ${DOCKER_VERSION="1.8.2"}
+: ${DOCKER_VERSION="1.9.1"}
 : ${DOCKER_COMPOSE_VERSION="1.4.2"}
 : ${DOCKER_MACHINE_VERSION="0.5.6"}
 : ${DOCKER_INSTALL_URL="https://get.docker.com"}
